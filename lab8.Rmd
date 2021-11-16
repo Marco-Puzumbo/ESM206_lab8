@@ -8,30 +8,106 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-libary(tidyverse)
-libary(here)
-library(corrrplot)
+library(tidyverse)
+library(here)
+library(corrplot)
 library(broom)
 library(here)
+library(modelsummary)
+```
+## read in sol_homes.csv
+
+```{r}
+homes <- read_csv(here("data", "slo_homes.csv"))
+```
+
+### Create a subset with foru cities, called homes_subset
+only homes from:
+san luis obispo
+atascadero
+AG
+santa maria
+
+```{r}
+homes_subset <- homes %>% 
+  filter(City %in% c("San Luis Obispo", "Atascadero", "Arroyo Grande", "Santa Maria-Orcutt"))
+```
+
+create a summary table that has the mean and standard deviation of home prices grouped by city and sale status
+
+```{r, include = FALSE, eval = FALSE}
+homes_subset %>% 
+  group_by(City, Status) %>% 
+  summarize(average = mean(Price), 
+            dev = sd(Price),
+            mean_sqft = mean(SqFt))
 
 ```
 
-## R Markdown
+```{r}
+# explore relationship between squarefootage and price
+ggplot(data = homes_subset, aes(y = Price, x = SqFt))+
+geom_point()+
+  geom_smooth(method = lm)
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
 ```
 
-## Including Plots
+### Try a few linear methods
+Use multiple linear regresion to investigaterealtionships between several predictor variables and home price.
 
-You can also embed plots, for example:
+Creat 2 different permutations of model
+1: price as function of: city, bedrooms, bathrooms, quare footage, status
+2: price as function of city sqftm status
+```{r}
+model1 <- lm(Price ~ City + Bedrooms + Bathrooms + SqFt+ Status, data = homes_subset)
+summary(model1)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+
+model2 <- lm(Price ~ City + SqFt + Status, data = homes_subset)
+summary(model2)
+
+model3 <- lm(Price ~ City + Bedrooms + SqFt + Status, data = homes_subset)
+summary(model3)
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+### Explore correlations between quntative values
+
+make subset called homes_quant(strtin grom home_subset) that only contains the variables from price through sqFT
+
+```{r}
+homes_quant <- homes_subset %>% 
+  select(Price:SqFt)
+
+homes_cor <- cor(homes_quant)
+corrplot(homes_cor)
+```
+
+```{r}
+#com[are aic values
+AIC(model1)
+AIC(model2)
+```
+
+### Use modelsummary() to return multiple model outputs
+
+```{r}
+
+modelsummary(list(model1, model2, model3))
+```
+
+```{r}
+# diagnostic plots for lm1
+plot(model1)
+```
+
+```{r}
+#use broom::augment() to return ther prediction s for existing observations
+home_predictions <- augment(model1)
+```
+
+```{r}
+ggplot(data =home_predictions, aes(x = .resid))+
+geom_histogram()
+```
+
